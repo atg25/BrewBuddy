@@ -24,6 +24,7 @@ import {
   type BrewBuddyUIMessage,
 } from "@/lib/types/chat";
 import {
+  searchResponseSchema,
   searchInputSchema,
   type BeerResult,
   type SearchResponse,
@@ -304,13 +305,23 @@ async function createGeminiChatResponse(
           "Search public brewery data for beers that match flavor cues and style preferences.",
         inputSchema: searchInputSchema,
         execute: async (input) => {
-          const { cache, service, enricher } = createSearchServiceContext();
+          let closeCache: (() => void) | null = null;
 
           try {
+            const { cache, service, enricher } = createSearchServiceContext();
+            closeCache = () => cache.close();
+
             const baseResult = await service.search(input);
             return await enrichSearchResponse(baseResult, enricher);
+          } catch (error) {
+            return searchResponseSchema.parse({
+              beers: [],
+              source: "winevybe",
+              cache_hit: false,
+              warning: toReadableChatErrorMessage(error),
+            });
           } finally {
-            cache.close();
+            closeCache?.();
           }
         },
       }),
