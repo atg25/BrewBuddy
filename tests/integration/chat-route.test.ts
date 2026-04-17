@@ -13,6 +13,7 @@ type StreamChunk = {
     source?: string;
     attempt?: number;
     max_steps?: number;
+    beers?: unknown[];
   };
 };
 
@@ -102,6 +103,50 @@ describe("POST /api/chat", () => {
     expect(response.status).toBe(200);
     expect(fetchedUrls[0]).toContain("beers-master-list-2023.txt");
     expect(recommendationsChunk).toBeDefined();
+  });
+
+  it("keeps recommendations but adds warning when enrichment lookup fails", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: string | URL | globalThis.Request) => {
+        const url =
+          typeof input === "string"
+            ? input
+            : input instanceof URL
+              ? input.toString()
+              : input.url;
+
+        if (url.includes("beers-master-list-2023.txt")) {
+          return new Response("Pine Trail Brewing Co West Coast IPA", {
+            status: 200,
+          });
+        }
+
+        if (url.includes("duckduckgo.com/html")) {
+          return new Response("", { status: 503 });
+        }
+
+        return new Response("", { status: 404 });
+      }),
+    );
+
+    const response = await POST(
+      new Request("http://localhost/api/chat", {
+        method: "POST",
+        body: JSON.stringify(createChatRequestBody("citrus and pine")),
+      }),
+    );
+
+    const chunks = parseSseResponse(await response.text());
+    const recommendationsChunk = chunks.find(
+      (chunk) => chunk.type === "data-recommendations",
+    );
+
+    expect(response.status).toBe(200);
+    expect(recommendationsChunk?.data?.beers?.length).toBeGreaterThan(0);
+    expect(recommendationsChunk?.data?.warning).toMatch(
+      /extra tasting detail/i,
+    );
   });
 
   it("surfaces safe provider error when master list lookup fails", async () => {

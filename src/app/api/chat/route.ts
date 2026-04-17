@@ -259,28 +259,46 @@ async function enrichSearchResponse(
     return response;
   }
 
+  let lookupFailureCount = 0;
+
   const enrichedBeers = await Promise.all(
     response.beers.map(async (beer): Promise<BeerResult> => {
       try {
-        const enrichment = await enricher.enrichBeer(beer);
-        if (!enrichment) {
+        const result = await enricher.enrichBeerWithStatus(beer);
+
+        if (result.status === "lookup-failed") {
+          lookupFailureCount += 1;
+        }
+
+        if (!result.enrichment) {
           return beer;
         }
 
         // Preserve WineVybe identity fields and only append enrichment details.
         return {
           ...beer,
-          enrichment,
+          enrichment: result.enrichment,
         };
       } catch {
+        lookupFailureCount += 1;
         return beer;
       }
     }),
   );
 
+  const enrichmentWarning =
+    lookupFailureCount > 0
+      ? "Could not load extra tasting detail from web sources right now."
+      : null;
+
+  const mergedWarning = [response.warning, enrichmentWarning]
+    .map((value) => value?.trim())
+    .filter((value): value is string => Boolean(value));
+
   return {
     ...response,
     beers: enrichedBeers,
+    warning: mergedWarning.length > 0 ? mergedWarning.join(" ") : null,
   };
 }
 

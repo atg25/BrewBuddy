@@ -14,6 +14,18 @@ type WebSearchHit = {
   domain: string;
 };
 
+type WebSearchOutcome = {
+  hits: WebSearchHit[];
+  failed: boolean;
+};
+
+export type BeerEnrichmentStatus = "ok" | "no-data" | "lookup-failed";
+
+export interface BeerEnrichmentResult {
+  enrichment: BeerEnrichment | null;
+  status: BeerEnrichmentStatus;
+}
+
 const TRUSTED_DOMAIN_RANK: Record<string, number> = {
   "untappd.com": 1,
   "beeradvocate.com": 0.97,
@@ -135,6 +147,11 @@ export class BeerEnrichmentService {
   }
 
   async enrichBeer(beer: BeerResult): Promise<BeerEnrichment | null> {
+    const result = await this.enrichBeerWithStatus(beer);
+    return result.enrichment;
+  }
+
+  async enrichBeerWithStatus(beer: BeerResult): Promise<BeerEnrichmentResult> {
     const key = makeBeerEnrichmentCacheKey({
       id: beer.id,
       name: beer.name,
@@ -144,24 +161,46 @@ export class BeerEnrichmentService {
 
     const cached = this.cache.getEnrichment(key);
     if (cached) {
-      return cached.payload;
+      return {
+        enrichment: cached.payload,
+        status: "ok",
+      };
     }
 
-    const hits = await this.searchWeb(`${beer.name} ${beer.brewery} beer`);
-    if (hits.length === 0) {
-      return null;
+    const webSearchOutcome = await this.searchWeb(
+      `${beer.name} ${beer.brewery} beer`,
+    );
+
+    if (webSearchOutcome.failed) {
+      return {
+        enrichment: null,
+        status: "lookup-failed",
+      };
     }
 
-    const enrichment = this.extractEnrichment(beer, hits);
+    if (webSearchOutcome.hits.length === 0) {
+      return {
+        enrichment: null,
+        status: "no-data",
+      };
+    }
+
+    const enrichment = this.extractEnrichment(beer, webSearchOutcome.hits);
     if (!enrichment) {
-      return null;
+      return {
+        enrichment: null,
+        status: "no-data",
+      };
     }
 
     this.cache.setEnrichment(key, enrichment, this.config.DETAILS_TTL_SECONDS);
-    return enrichment;
+    return {
+      enrichment,
+      status: "ok",
+    };
   }
 
-  private async searchWeb(query: string): Promise<WebSearchHit[]> {
+  private async searchWeb(query: string): Promise<WebSearchOutcome> {
     const url = `https://duckduckgo.com/html/?q=${encodeURIComponent(query)}`;
 
     let response: Response;
@@ -173,11 +212,17 @@ export class BeerEnrichmentService {
         },
       });
     } catch {
-      return [];
+      return {
+        hits: [],
+        failed: true,
+      };
     }
 
     if (!response.ok) {
-      return [];
+      return {
+        hits: [],
+        failed: true,
+      };
     }
 
     const html = await response.text();
@@ -210,7 +255,14 @@ export class BeerEnrichmentService {
       match = resultPattern.exec(html);
     }
 
-    return hits;
+    const likelyParseMiss =
+      hits.length === 0 &&
+      (html.includes("result__a") || html.includes("result__snippet"));
+
+    return {
+      hits,
+      failed: likelyParseMiss,
+    };
   }
 
   private extractEnrichment(

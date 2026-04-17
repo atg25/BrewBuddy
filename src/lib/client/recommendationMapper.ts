@@ -84,20 +84,18 @@ function normalizeEnvelopeWarning(warning: string | null): string | null {
     return null;
   }
 
-  const normalized = warning.trim();
-  if (normalized.length === 0) {
-    return null;
-  }
-
-  if (
-    /detailed tasting notes unavailable.*winevybe.*master list/i.test(
-      normalized,
+  const withoutBaselineWarning = warning
+    .replace(
+      /detailed tasting notes unavailable in (the )?winevybe master list\.?/i,
+      "",
     )
-  ) {
+    .trim();
+
+  if (withoutBaselineWarning.length === 0) {
     return null;
   }
 
-  return normalized;
+  return withoutBaselineWarning;
 }
 
 function sourceLabel(source: z.infer<typeof beerSourceSchema>): string {
