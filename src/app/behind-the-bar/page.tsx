@@ -4,7 +4,7 @@ import Link from "next/link";
 export const metadata: Metadata = {
   title: "Behind The Bar | BrewBuddy",
   description:
-    "Deep dive into BrewBuddy architecture: web app, chat orchestration, MCP, caching, and backend services.",
+    "Deep dive into BrewBuddy architecture: web app, chat orchestration, a companion MCP server, caching, and backend services.",
 };
 
 const architectureRows = [
@@ -35,7 +35,7 @@ const architectureRows = [
   },
   {
     layer: "MCP Server",
-    role: "Exposes search/details tools and prompt resources over MCP protocol.",
+    role: "Exposes search/details tools and prompt resources over MCP for external clients; the web app does not depend on it at runtime.",
     source: "apps/mcp-server/src/server/createBrewBuddyServer.ts",
   },
 ];
@@ -64,6 +64,7 @@ const flowSteps = [
 ];
 
 const mcpNotes = [
+  "This server is separate from the web app runtime and only matters for MCP-capable clients.",
   "Tools are defined with input/output schemas so callers get predictable contracts.",
   "Search tool is cache-first and returns controlled warnings instead of crashing.",
   "Details tool resolves beer details via catalog identity + provider lookups.",
@@ -182,8 +183,10 @@ export default function BehindTheBarPage() {
                 MCP Layer
               </h2>
               <p className="mt-2 text-sm leading-6 text-amber-100/80">
-                The MCP server packages BrewBuddy capabilities as explicit tools
-                and resources for agentic integrations.
+                The MCP server is a companion surface for MCP-capable clients,
+                not part of the website runtime. It packages BrewBuddy
+                capabilities as explicit tools and resources so agents and
+                desktop clients can reuse the same logic.
               </p>
               <ul className="mt-4 ml-5 list-disc space-y-2 text-sm leading-6 text-amber-100/85">
                 {mcpNotes.map((note) => (

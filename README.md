@@ -6,7 +6,9 @@ Instead of dumping a giant list of results on the screen, BrewBuddy helps users 
 
 ## What This App Does
 
-BrewBuddy is the web experience for the project. It combines a chat UI, a streaming recommendation flow, backend search services, and a companion MCP server for tool-based access.
+BrewBuddy is the web experience for the project. It combines a chat UI, a streaming recommendation flow, and backend search services.
+
+The monorepo also includes a companion MCP server. That server is optional for the website itself, but it exposes the same BrewBuddy search and detail capabilities through the MCP protocol so external agent or desktop clients can reuse the same logic.
 
 The main user flow is:
 
@@ -178,4 +180,4 @@ BrewBuddy exists because beer discovery is harder than it looks. Two beers can f
 
 ## Companion Project
 
-The monorepo also includes `apps/mcp-server`, which exposes BrewBuddy search and details functionality through MCP so the same data and tool logic can be reused by agentic or tool-based clients.
+The monorepo also includes `apps/mcp-server`, which packages BrewBuddy capabilities as MCP prompts, resources, and tools. It exists for clients that speak MCP, not because the web app needs it at runtime.
