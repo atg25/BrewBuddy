@@ -24,7 +24,9 @@ const envSchema = z.object({
 export type AppConfig = z.infer<typeof envSchema>;
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
-  const dbPathDefault = env.VERCEL ? "/tmp/brewbuddy.sqlite" : ".data/brewbuddy.sqlite";
+  const dbPathDefault = env.VERCEL
+    ? "/tmp/brewbuddy.sqlite"
+    : ".data/brewbuddy.sqlite";
 
   const parsed = envSchema.safeParse({
     ...env,
