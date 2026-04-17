@@ -19,6 +19,14 @@ type WebSearchOutcome = {
   failed: boolean;
 };
 
+type WebSearchProvider = {
+  name: "duckduckgo" | "bing";
+  buildUrl: (query: string) => string;
+  resultPattern: RegExp;
+  extractUrl: (rawUrl: string) => string;
+  likelyResultMarker: RegExp;
+};
+
 export type BeerEnrichmentStatus = "ok" | "no-data" | "lookup-failed";
 
 export interface BeerEnrichmentResult {
@@ -35,6 +43,32 @@ const TRUSTED_DOMAIN_RANK: Record<string, number> = {
 };
 
 const MAX_LINKS = 3;
+const WEB_SEARCH_USER_AGENT =
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
+
+const WEB_SEARCH_PROVIDERS: WebSearchProvider[] = [
+  {
+    name: "duckduckgo",
+    buildUrl: (query) =>
+      `https://duckduckgo.com/html/?q=${encodeURIComponent(query)}`,
+    resultPattern:
+      /<a[^>]*class="result__a"[^>]*href="([^"]+)"[^>]*>(.*?)<\/a>[\s\S]*?<a[^>]*class="result__snippet"[^>]*>(.*?)<\/a>/gi,
+    extractUrl: (rawUrl) => {
+      const urlParamMatch = rawUrl.match(/uddg=([^&]+)/);
+      return urlParamMatch ? decodeURIComponent(urlParamMatch[1]!) : rawUrl;
+    },
+    likelyResultMarker: /result__a|result__snippet/i,
+  },
+  {
+    name: "bing",
+    buildUrl: (query) =>
+      `https://www.bing.com/search?q=${encodeURIComponent(query)}`,
+    resultPattern:
+      /<li[^>]*class="[^"]*b_algo[^"]*"[^>]*>[\s\S]*?<h2>\s*<a[^>]*href="([^"]+)"[^>]*>(.*?)<\/a>[\s\S]*?(?:<p[^>]*>(.*?)<\/p>)?/gi,
+    extractUrl: (rawUrl) => rawUrl,
+    likelyResultMarker: /b_algo|<h2>\s*<a/i,
+  },
+];
 
 function htmlDecode(value: string): string {
   return value
@@ -131,6 +165,36 @@ function bestByScore(candidates: Array<{ value: string; score: number }>) {
   };
 }
 
+function extractWebSearchHits(
+  html: string,
+  provider: WebSearchProvider,
+): WebSearchHit[] {
+  const hits: WebSearchHit[] = [];
+  let match: RegExpExecArray | null = provider.resultPattern.exec(html);
+
+  while (match && hits.length < 12) {
+    const rawUrl = htmlDecode(match[1] ?? "");
+    const resolvedUrl = provider.extractUrl(rawUrl);
+    const domain = getDomain(resolvedUrl);
+
+    if (!domain) {
+      match = provider.resultPattern.exec(html);
+      continue;
+    }
+
+    hits.push({
+      title: htmlDecode(match[2] ?? ""),
+      url: resolvedUrl,
+      snippet: htmlDecode(match[3] ?? ""),
+      domain,
+    });
+
+    match = provider.resultPattern.exec(html);
+  }
+
+  return hits;
+}
+
 export class BeerEnrichmentService {
   private readonly cache: SearchCacheRepository;
   private readonly fetchImpl: typeof fetch;
@@ -201,67 +265,46 @@ export class BeerEnrichmentService {
   }
 
   private async searchWeb(query: string): Promise<WebSearchOutcome> {
-    const url = `https://duckduckgo.com/html/?q=${encodeURIComponent(query)}`;
+    let observedLookupFailure = false;
 
-    let response: Response;
-    try {
-      response = await this.fetchImpl(url, {
-        method: "GET",
-        headers: {
-          "user-agent": "BrewBuddy/1.0",
-        },
-      });
-    } catch {
-      return {
-        hits: [],
-        failed: true,
-      };
-    }
+    for (const provider of WEB_SEARCH_PROVIDERS) {
+      let response: Response;
 
-    if (!response.ok) {
-      return {
-        hits: [],
-        failed: true,
-      };
-    }
-
-    const html = await response.text();
-
-    const resultPattern =
-      /<a[^>]*class="result__a"[^>]*href="([^"]+)"[^>]*>(.*?)<\/a>[\s\S]*?<a[^>]*class="result__snippet"[^>]*>(.*?)<\/a>/gi;
-    const hits: WebSearchHit[] = [];
-    let match: RegExpExecArray | null = resultPattern.exec(html);
-
-    while (match && hits.length < 12) {
-      const rawUrl = htmlDecode(match[1] ?? "");
-      const urlParamMatch = rawUrl.match(/uddg=([^&]+)/);
-      const resolvedUrl = urlParamMatch
-        ? decodeURIComponent(urlParamMatch[1]!)
-        : rawUrl;
-
-      const domain = getDomain(resolvedUrl);
-      if (!domain) {
-        match = resultPattern.exec(html);
+      try {
+        response = await this.fetchImpl(provider.buildUrl(query), {
+          method: "GET",
+          headers: {
+            "user-agent": WEB_SEARCH_USER_AGENT,
+          },
+        });
+      } catch {
+        observedLookupFailure = true;
         continue;
       }
 
-      hits.push({
-        title: htmlDecode(match[2] ?? ""),
-        url: resolvedUrl,
-        snippet: htmlDecode(match[3] ?? ""),
-        domain,
-      });
+      if (!response.ok) {
+        observedLookupFailure = true;
+        continue;
+      }
 
-      match = resultPattern.exec(html);
+      const html = await response.text();
+      const hits = extractWebSearchHits(html, provider);
+
+      if (hits.length > 0) {
+        return {
+          hits,
+          failed: false,
+        };
+      }
+
+      if (provider.likelyResultMarker.test(html)) {
+        observedLookupFailure = true;
+      }
     }
 
-    const likelyParseMiss =
-      hits.length === 0 &&
-      (html.includes("result__a") || html.includes("result__snippet"));
-
     return {
-      hits,
-      failed: likelyParseMiss,
+      hits: [],
+      failed: observedLookupFailure,
     };
   }
 
