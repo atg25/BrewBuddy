@@ -1,16 +1,20 @@
 @import "tailwindcss";
 
 :root {
-  --background: #120d09;
-  --foreground: #f3e7d6;
-  --surface: #fbf3e7;
-  --surface-soft: #f5ead8;
-  --surface-strong: #fff8ee;
-  --border: rgba(248, 220, 179, 0.2);
-  --accent: #ce8530;
-  --accent-deep: #8a4f17;
-  --accent-soft: #f0bf79;
-  --board: #120d09;
+  --background: #f4efe5;
+  --foreground: #2b1f0f;
+  --surface: #fffbf7;
+  --surface-soft: #f8f0e4;
+  --surface-strong: #fffcf8;
+  --border: rgba(60, 39, 19, 0.2);
+  --accent: #c17a2e;
+  --accent-deep: #85501c;
+  --accent-soft: #e3b06d;
+  --support: #4e7c59;
+  --board: #16110d;
+  --board-soft: #241a13;
+  --ease-smooth: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --ease-gentle: cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
 @theme inline {
@@ -25,16 +29,12 @@ body {
   min-height: 100%;
   background:
     radial-gradient(
-      circle at 16% -6%,
-      rgba(240, 191, 121, 0.16),
-      transparent 46%
+      circle at 14% -8%,
+      rgba(217, 149, 69, 0.32),
+      transparent 43%
     ),
-    radial-gradient(
-      circle at 92% 8%,
-      rgba(212, 125, 40, 0.12),
-      transparent 36%
-    ),
-    linear-gradient(180deg, #19120d 0%, #100b08 100%);
+    radial-gradient(circle at 88% 6%, rgba(133, 80, 28, 0.22), transparent 38%),
+    linear-gradient(180deg, #f7f1e7 0%, #efe5d5 62%, #e8dbc9 100%);
   color: var(--foreground);
   font-family: var(--font-manrope), ui-sans-serif, system-ui, sans-serif;
 }
@@ -45,18 +45,151 @@ body::before {
   inset: 0;
   pointer-events: none;
   background-image:
-    linear-gradient(120deg, rgba(255, 219, 171, 0.03), transparent 40%),
+    linear-gradient(120deg, rgba(255, 241, 225, 0.42), transparent 38%),
     repeating-linear-gradient(
       90deg,
-      rgba(255, 255, 255, 0.01),
-      rgba(255, 255, 255, 0.01) 1px,
+      rgba(255, 255, 255, 0.08),
+      rgba(255, 255, 255, 0.08) 1px,
       transparent 1px,
-      transparent 8px
+      transparent 10px
     );
-  opacity: 0.45;
+  opacity: 0.34;
+}
+
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(
+      circle at 50% 110%,
+      rgba(255, 255, 255, 0.35),
+      transparent 40%
+    ),
+    radial-gradient(circle at 50% 0%, rgba(150, 98, 38, 0.08), transparent 34%);
+}
+
+* {
+  scrollbar-color: rgba(123, 74, 25, 0.55) rgba(255, 255, 255, 0.12);
+}
+
+:focus-visible {
+  outline: 2px solid #2f7e48;
+  outline-offset: 2px;
+}
+
+.bb-glass {
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  background: linear-gradient(
+    160deg,
+    rgba(255, 255, 255, 0.7) 0%,
+    rgba(255, 255, 255, 0.3) 100%
+  );
+  backdrop-filter: blur(8px);
+}
+
+.bb-shimmer {
+  position: relative;
+  overflow: hidden;
+}
+
+.bb-shimmer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-130%);
+  background: linear-gradient(
+    100deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.35) 48%,
+    transparent 100%
+  );
+  animation: bb-shimmer 2.3s var(--ease-gentle) infinite;
+}
+
+@keyframes bb-shimmer {
+  100% {
+    transform: translateX(130%);
+  }
+}
+
+.bb-motion {
+  transition-property:
+    transform, opacity, box-shadow, border-color, background-color, color;
+  transition-duration: 380ms;
+  transition-timing-function: var(--ease-gentle);
+}
+
+.bb-enter-fade {
+  animation: bb-enter-fade 560ms var(--ease-smooth) both;
+}
+
+.bb-enter-rise {
+  animation: bb-enter-rise 680ms var(--ease-smooth) both;
+}
+
+.bb-breathe {
+  animation: bb-breathe 2.4s var(--ease-gentle) infinite;
+}
+
+@keyframes bb-enter-fade {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes bb-enter-rise {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.992);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes bb-breathe {
+  0%,
+  100% {
+    opacity: 0.74;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scale(1.012);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .bb-shimmer::after {
+    content: none;
+  }
+
+  .bb-enter-fade,
+  .bb-enter-rise,
+  .bb-breathe {
+    animation: none !important;
+  }
 }
 
 ::selection {
-  background: rgba(206, 133, 48, 0.25);
-  color: var(--foreground);
+  background: rgba(193, 122, 46, 0.3);
+  color: #1d1309;
 }

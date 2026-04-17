@@ -177,6 +177,30 @@ function renderAssistantTextPart(
 
 export default function Home() {
   const [input, setInput] = useState("");
+  const [hasSentMessage, setHasSentMessage] = useState(false);
+  const starterPrompts = [
+    {
+      label: "Dark & Roasted",
+      prompt:
+        "I'm after something dark, roasty, and smooth with coffee and cocoa notes.",
+    },
+    {
+      label: "Bright & Citrusy",
+      prompt:
+        "I want something bright and citrusy, but still easy to drink and refreshing.",
+    },
+    {
+      label: "Sweet & Smooth",
+      prompt:
+        "I'm in the mood for something sweet, soft, and a little creamy without being heavy.",
+    },
+    {
+      label: "Clean & Crisp",
+      prompt:
+        "I want a clean, crisp beer with a dry finish that feels easy and balanced.",
+    },
+  ] as const;
+
   const { messages, sendMessage, status, error } = useChat<BrewBuddyUIMessage>({
     transport: new DefaultChatTransport({
       api: "/api/chat",
@@ -194,23 +218,37 @@ export default function Home() {
       return;
     }
 
+    setHasSentMessage(true);
     await sendMessage({ text: nextPrompt });
     setInput("");
   };
+
+  const handleStarterPrompt = async (prompt: string) => {
+    if (isPending) {
+      return;
+    }
+
+    setHasSentMessage(true);
+    setInput("");
+    await sendMessage({ text: prompt });
+  };
+
+  const hasConversation = hasSentMessage;
 
   return (
     <div className="h-screen w-screen overflow-hidden bg-[var(--background)]">
       <main className="relative flex h-full w-full flex-col overflow-hidden bg-[linear-gradient(180deg,#17120e_0%,#100c09_100%)] text-amber-50">
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_12%_-8%,rgba(235,167,90,0.16),transparent_42%),radial-gradient(circle_at_88%_4%,rgba(198,112,34,0.12),transparent_34%)]" />
-        <header className="relative border-b border-white/10 px-4 py-6 sm:px-8 lg:px-10">
-          <div className="flex items-center justify-between gap-3">
+
+        <header className="relative border-b border-white/10 px-4 py-5 sm:px-8 lg:px-10">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-[10px] uppercase tracking-[0.35em] text-amber-200/70">
               BrewBuddy
             </p>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2 sm:justify-end">
               <Link
                 href="/behind-the-bar"
-                className="rounded-full border border-white/20 bg-white/5 px-3 py-1.5 text-[10px] uppercase tracking-[0.28em] text-amber-100/80 transition hover:border-amber-200/50 hover:text-amber-50"
+                className="bb-motion rounded-full border border-white/20 bg-white/5 px-3 py-1.5 text-[10px] uppercase tracking-[0.28em] text-amber-100/80 hover:border-amber-200/50 hover:text-amber-50"
               >
                 Behind The Bar
               </Link>
@@ -219,219 +257,240 @@ export default function Home() {
               </span>
             </div>
           </div>
-
-          <h1 className="mt-3 max-w-4xl font-serif text-4xl font-semibold tracking-tight text-amber-50 sm:text-5xl lg:text-6xl">
-            Find your perfect craft beer.
-          </h1>
-
-          <p className="mt-3 max-w-3xl text-sm leading-6 text-amber-100/80 sm:text-base">
-            Describe the flavors you want, a style you like, or a beer you
-            already enjoy. BrewBuddy will talk through options that fit your
-            taste.
-          </p>
-
-          <div className="mt-5 flex flex-wrap gap-2.5" aria-hidden="true" />
         </header>
 
-        <section
-          aria-live="polite"
-          suppressHydrationWarning
-          className="relative flex-1 space-y-4 overflow-y-auto px-4 pt-5 pb-36 sm:px-8 lg:px-10"
-        >
-          {messages.length === 0 ? (
-            <div className="max-w-2xl rounded-2xl border border-white/10 bg-white/5 p-4 text-sm leading-6 text-amber-100/80 backdrop-blur-sm">
-              Start with flavors, a style, or even a beer you already like. Brew
-              Buddy will search the web and talk you through some options that
-              fit your taste.
-            </div>
-          ) : null}
+        {!hasConversation ? (
+          <section className="bb-enter-rise relative flex flex-1 items-center justify-center overflow-y-auto px-4 pb-36 pt-6 sm:px-8 lg:px-10">
+            <div className="mx-auto w-full max-w-4xl text-center">
+              <h1 className="mx-auto max-w-3xl font-serif text-3xl font-semibold tracking-tight text-amber-50 sm:text-5xl lg:text-7xl">
+                Find your perfect craft beer.
+              </h1>
 
-          {messages.map((message) => (
-            <article
-              key={message.id}
-              className={getTranscriptBubbleClass(
-                message.role === "user" ? "user" : "assistant",
-              )}
-            >
-              <p className="mb-2 text-[10px] uppercase tracking-[0.35em] opacity-70">
-                {message.role === "user" ? "You" : "BrewBuddy"}
+              <p className="mx-auto mt-4 max-w-2xl text-sm leading-7 text-amber-100/80 sm:text-base">
+                Describe the flavors you want, a style you like, or a beer you
+                already enjoy. BrewBuddy will talk through options that fit your
+                taste.
               </p>
 
-              <div className="space-y-3">
-                {(() => {
-                  const textElements: ReactElement[] = [];
-                  const statusElements: ReactElement[] = [];
-                  const recommendationElements: ReactElement[] = [];
+              <div className="mx-auto mt-6 grid w-full max-w-xl grid-cols-2 gap-2 sm:flex sm:max-w-2xl sm:flex-wrap sm:justify-center sm:gap-2.5">
+                {starterPrompts.map((starterPrompt) => (
+                  <button
+                    key={starterPrompt.label}
+                    type="button"
+                    onClick={() => handleStarterPrompt(starterPrompt.prompt)}
+                    disabled={isPending}
+                    className="bb-motion min-h-11 rounded-full border border-amber-200/30 bg-white/10 px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-amber-50 hover:-translate-y-0.5 hover:border-amber-200/55 hover:bg-white/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-200 sm:px-3 sm:py-1.5 sm:text-xs"
+                  >
+                    {starterPrompt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </section>
+        ) : (
+          <section
+            aria-live="polite"
+            suppressHydrationWarning
+            className="bb-enter-fade relative flex-1 space-y-4 overflow-y-auto px-3 pt-4 pb-36 sm:px-8 lg:px-10"
+          >
+            <article className={getTranscriptBubbleClass("assistant")}>
+              <p className="mb-2 text-[10px] uppercase tracking-[0.35em] opacity-70">
+                BrewBuddy
+              </p>
+              <p className="text-sm leading-6">
+                Start with flavors, a style, or even a beer you already like.
+                BrewBuddy will search public brewery data and guide you through
+                options that fit your taste.
+              </p>
+            </article>
 
-                  for (const [index, part] of message.parts.entries()) {
-                    if (part.type === "text") {
-                      if (message.role === "assistant") {
-                        textElements.push(
-                          ...renderAssistantTextPart(
-                            part.text,
-                            `${message.id}-text-${index}`,
-                          ),
-                        );
-                      } else {
-                        textElements.push(
-                          <p
-                            key={`${message.id}-text-${index}`}
-                            className="text-sm leading-6"
-                          >
-                            {part.text}
-                          </p>,
-                        );
-                      }
-                      continue;
-                    }
+            {messages.map((message) => (
+              <article
+                key={message.id}
+                className={getTranscriptBubbleClass(
+                  message.role === "user" ? "user" : "assistant",
+                )}
+              >
+                <p className="mb-2 text-[10px] uppercase tracking-[0.35em] opacity-70">
+                  {message.role === "user" ? "You" : "BrewBuddy"}
+                </p>
 
-                    if (part.type === "data-recommendations") {
-                      const mapped = mapRecommendationsToBeerCards(part.data);
+                <div className="space-y-3">
+                  {(() => {
+                    const textElements: ReactElement[] = [];
+                    const statusElements: ReactElement[] = [];
+                    const recommendationElements: ReactElement[] = [];
 
-                      if (mapped.kind === "malformed") {
-                        recommendationElements.push(
-                          <p
-                            key={`${message.id}-malformed-${index}`}
-                            className="rounded-xl border border-amber-300/20 bg-amber-100/90 px-3 py-2 text-sm text-stone-900"
-                          >
-                            Some recommendation data could not be rendered.
-                          </p>,
-                        );
+                    for (const [index, part] of message.parts.entries()) {
+                      if (part.type === "text") {
+                        if (message.role === "assistant") {
+                          textElements.push(
+                            ...renderAssistantTextPart(
+                              part.text,
+                              `${message.id}-text-${index}`,
+                            ),
+                          );
+                        } else {
+                          textElements.push(
+                            <p
+                              key={`${message.id}-text-${index}`}
+                              className="text-sm leading-6"
+                            >
+                              {part.text}
+                            </p>,
+                          );
+                        }
                         continue;
                       }
 
-                      if (mapped.cards.length === 0) {
-                        continue;
-                      }
+                      if (part.type === "data-recommendations") {
+                        const mapped = mapRecommendationsToBeerCards(part.data);
 
-                      recommendationElements.push(
-                        renderBeerRecommendations(
-                          `${message.id}-cards-${index}`,
-                          part.data,
-                        ),
-                      );
-                      continue;
-                    }
+                        if (mapped.kind === "malformed") {
+                          recommendationElements.push(
+                            <p
+                              key={`${message.id}-malformed-${index}`}
+                              className="rounded-xl border border-amber-300/20 bg-amber-100/90 px-3 py-2 text-sm text-stone-900"
+                            >
+                              Some recommendation data could not be rendered.
+                            </p>,
+                          );
+                          continue;
+                        }
 
-                    if (part.type === brewBuddyBeerSearchToolPartType) {
-                      if (part.state === "input-streaming") {
-                        statusElements.push(
-                          <p
-                            key={`${message.id}-tool-input-streaming-${index}`}
-                            className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-amber-100/80"
-                          >
-                            Searching for matching beers...
-                          </p>,
-                        );
-                        continue;
-                      }
+                        if (mapped.cards.length === 0) {
+                          continue;
+                        }
 
-                      if (part.state === "input-available") {
-                        statusElements.push(
-                          <p
-                            key={`${message.id}-tool-input-available-${index}`}
-                            className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-amber-100/80"
-                          >
-                            Looking up {describeSearchInput(part.input)}.
-                          </p>,
-                        );
-                        continue;
-                      }
-
-                      if (part.state === "output-available") {
                         recommendationElements.push(
                           renderBeerRecommendations(
-                            `${message.id}-tool-output-${index}`,
-                            part.output,
+                            `${message.id}-cards-${index}`,
+                            part.data,
                           ),
                         );
                         continue;
                       }
 
-                      if (part.state === "output-error") {
+                      if (part.type === brewBuddyBeerSearchToolPartType) {
+                        if (part.state === "input-streaming") {
+                          statusElements.push(
+                            <p
+                              key={`${message.id}-tool-input-streaming-${index}`}
+                              className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-amber-100/80"
+                            >
+                              Searching for matching beers...
+                            </p>,
+                          );
+                          continue;
+                        }
+
+                        if (part.state === "input-available") {
+                          statusElements.push(
+                            <p
+                              key={`${message.id}-tool-input-available-${index}`}
+                              className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-amber-100/80"
+                            >
+                              Looking up {describeSearchInput(part.input)}.
+                            </p>,
+                          );
+                          continue;
+                        }
+
+                        if (part.state === "output-available") {
+                          recommendationElements.push(
+                            renderBeerRecommendations(
+                              `${message.id}-tool-output-${index}`,
+                              part.output,
+                            ),
+                          );
+                          continue;
+                        }
+
+                        if (part.state === "output-error") {
+                          statusElements.push(
+                            <p
+                              key={`${message.id}-tool-output-error-${index}`}
+                              className="rounded-xl border border-red-300/20 bg-red-100/90 px-3 py-2 text-sm text-red-950"
+                            >
+                              Beer search failed: {part.errorText}
+                            </p>,
+                          );
+                          continue;
+                        }
+
+                        if (part.state === "output-denied") {
+                          statusElements.push(
+                            <p
+                              key={`${message.id}-tool-output-denied-${index}`}
+                              className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-amber-100/80"
+                            >
+                              Beer search was skipped.
+                            </p>,
+                          );
+                        }
+
+                        continue;
+                      }
+
+                      if (part.type === "data-retry") {
                         statusElements.push(
                           <p
-                            key={`${message.id}-tool-output-error-${index}`}
-                            className="rounded-xl border border-red-300/20 bg-red-100/90 px-3 py-2 text-sm text-red-950"
+                            key={`${message.id}-retry-${index}`}
+                            className="rounded-xl border border-sky-300/20 bg-sky-100/90 px-3 py-2 text-sm text-sky-950"
                           >
-                            Beer search failed: {part.errorText}
+                            {part.data.message}
                           </p>,
                         );
                         continue;
                       }
 
-                      if (part.state === "output-denied") {
+                      if (part.type === "data-empty") {
                         statusElements.push(
                           <p
-                            key={`${message.id}-tool-output-denied-${index}`}
+                            key={`${message.id}-empty-${index}`}
                             className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-amber-100/80"
                           >
-                            Beer search was skipped.
+                            {part.data.message}
+                          </p>,
+                        );
+                        continue;
+                      }
+
+                      if (part.type === "data-error") {
+                        statusElements.push(
+                          <p
+                            key={`${message.id}-error-${index}`}
+                            className="rounded-xl border border-red-300/20 bg-red-100/90 px-3 py-2 text-sm text-red-950"
+                          >
+                            {part.data.message}
                           </p>,
                         );
                       }
-
-                      continue;
                     }
 
-                    if (part.type === "data-retry") {
-                      statusElements.push(
-                        <p
-                          key={`${message.id}-retry-${index}`}
-                          className="rounded-xl border border-sky-300/20 bg-sky-100/90 px-3 py-2 text-sm text-sky-950"
-                        >
-                          {part.data.message}
-                        </p>,
-                      );
-                      continue;
-                    }
+                    return [
+                      ...textElements,
+                      ...statusElements,
+                      ...recommendationElements,
+                    ];
+                  })()}
+                </div>
+              </article>
+            ))}
 
-                    if (part.type === "data-empty") {
-                      statusElements.push(
-                        <p
-                          key={`${message.id}-empty-${index}`}
-                          className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-amber-100/80"
-                        >
-                          {part.data.message}
-                        </p>,
-                      );
-                      continue;
-                    }
-
-                    if (part.type === "data-error") {
-                      statusElements.push(
-                        <p
-                          key={`${message.id}-error-${index}`}
-                          className="rounded-xl border border-red-300/20 bg-red-100/90 px-3 py-2 text-sm text-red-950"
-                        >
-                          {part.data.message}
-                        </p>,
-                      );
-                    }
-                  }
-
-                  return [
-                    ...textElements,
-                    ...statusElements,
-                    ...recommendationElements,
-                  ];
-                })()}
+            {isPending ? (
+              <div className={getRecommendationGridClass(2)}>
+                <BeerCardSkeleton />
+                <BeerCardSkeleton />
               </div>
-            </article>
-          ))}
-
-          {isPending ? (
-            <div className={getRecommendationGridClass(2)}>
-              <BeerCardSkeleton />
-              <BeerCardSkeleton />
-            </div>
-          ) : null}
-        </section>
+            ) : null}
+          </section>
+        )}
 
         <form
           onSubmit={handleSubmit}
           suppressHydrationWarning
-          className="fixed inset-x-0 bottom-0 z-30 border-t border-white/10 bg-black/30 px-4 py-4 backdrop-blur sm:px-8 lg:px-10"
+          className="fixed inset-x-0 bottom-0 z-30 border-t border-white/10 bg-black/30 px-3 py-4 backdrop-blur sm:px-8 lg:px-10"
         >
           <label
             htmlFor="flavor-query"
@@ -450,13 +509,13 @@ export default function Home() {
               autoCapitalize="none"
               spellCheck={false}
               placeholder="e.g. bright citrus, pine, crisp finish"
-              className="w-full rounded-full border border-white/15 bg-[#23160f] px-4 py-3 text-sm text-amber-50 outline-none placeholder:text-amber-100/35 focus-visible:border-amber-300 focus-visible:ring-2 focus-visible:ring-amber-400/20"
+              className="bb-motion w-full rounded-full border border-white/15 bg-[#23160f] px-4 py-3 text-sm text-amber-50 outline-none placeholder:text-amber-100/35 focus-visible:border-amber-300 focus-visible:ring-2 focus-visible:ring-amber-400/20"
             />
 
             <button
               type="submit"
               disabled={isPending}
-              className="rounded-full bg-[linear-gradient(135deg,var(--accent),#df9a3b)] px-6 py-3 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:bg-[linear-gradient(135deg,#cf8832,#e3aa4d)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-200 disabled:cursor-not-allowed disabled:opacity-50"
+              className="bb-motion min-h-12 rounded-full bg-[linear-gradient(135deg,var(--accent),#df9a3b)] px-6 py-3 text-sm font-semibold text-white hover:-translate-y-0.5 hover:bg-[linear-gradient(135deg,#cf8832,#e3aa4d)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-200 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {isPending ? "Sending..." : "Send"}
             </button>
